@@ -27,6 +27,8 @@ body{font-family:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-
 .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
 .chip:disabled{opacity:.4;cursor:default}
 .chip .n{opacity:.7;margin-left:4px}
+.chip .pd{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--fc)}
+.chip[aria-pressed="true"] .pd{box-shadow:0 0 0 1.5px #fff}
 .toggle{display:flex;align-items:center;gap:8px;font-size:14px;padding:9px 4px;margin-left:auto;cursor:pointer;min-height:40px}
 .toggle input{width:18px;height:18px;margin:0;accent-color:var(--ink)}
 .status{font-size:14px;color:#4a4a4a;margin:4px 0 12px;min-height:20px}
@@ -35,17 +37,24 @@ body{font-family:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-
 .card.ret{background:#f9f9f7;opacity:.72}
 .id{display:flex;align-items:center;gap:14px}
 .av{width:64px;height:64px;border-radius:50%;flex:0 0 64px;color:#fff;font-family:Archivo,sans-serif;font-weight:700;font-size:20px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.av{position:relative}
+.av{position:relative;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--fc)}
+.id{padding-left:4px}
 .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 25%}
 .ret .av{filter:grayscale(1)}
 .nm{font-family:Archivo,sans-serif;font-size:18px;font-weight:700;margin:0;line-height:1.2}
+.nm .ag{font-family:"Public Sans",sans-serif;font-size:14px;font-weight:400;color:var(--muted)}
 .pt{font-size:13px;color:var(--muted);margin:2px 0 0}
-.pt strong{font-weight:700}
+.pt strong{font-weight:700;color:var(--ink)}
+.pt .pd{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0;background:var(--fc)}
+.ret .pt .pd{background:#9a9a9a}
+.ret .pt strong{color:#5a5a5a}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--soft);color:#3a3a3a;display:inline-flex;align-items:center;gap:6px}
+a.tag{text-decoration:none;gap:4px}
+a.tag:hover{background:#e4e4e1;text-decoration:underline}
 .tag.st{background:var(--okbg);color:var(--ok)}
 .tag.st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
-.ret .tag.st{background:#e6e6e2;color:#4a4a4a}
+.ret .tag.st{background:#f5e1df;color:#a3352c}
 .bio{margin:0;font-size:14px;line-height:1.5;color:#2b2b2b}
 .foot{margin-top:auto;border-top:1px solid #ececea;padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .foot a{font-size:14px;font-weight:600;color:var(--link);display:inline-flex;align-items:center;gap:6px;min-height:32px;text-decoration:none}
@@ -71,33 +80,38 @@ body{font-family:"Public Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-
   <div class="filters" id="filters" role="group" aria-label="Filtrer par famille politique"></div>
   <p class="status" id="status" aria-live="polite"></p>
   <div class="grid" id="grid"></div>
-  <p class="note">Familles politiques selon la classification du ministère de l'Intérieur.</p>
 </div>
 
 <script>
 (function () {
-/* ================== RÉGLAGES ==================
-   Les données viennent du Google Sheet ci-dessous.
-   Pour utiliser un autre tableau, remplacez juste l'identifiant. */
 var SHEET_ID = "1XsO9xCC7wN6albneqI4TEru2L0o_sKXzCUlX7csBSl4";
-var SHEET_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:csv&headers=1";
+var BASE_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:csv&headers=1&sheet=";
+var SHEET_URL = BASE_URL + encodeURIComponent("Rédaction");
+var REGLAGES_URL = BASE_URL + "reglages";
 
-/* Couleur par parti (le nom doit correspondre à la colonne « parti »).
-   Un parti absent de cette liste s'affiche en gris. */
 var COULEURS = {
-  "la france insoumise": "#c4213c",
-  "parti communiste français": "#7f1d1d",
-  "parti socialiste": "#be185d",
-  "les ecologistes": "#15803d",
-  "place publique": "#7e22ce",
-  "renaissance": "#a16207",
-  "horizons": "#0e7490",
-  "les républicains": "#1d4ed8",
-  "rassemblement national": "#1e1b4b"
+  "Extrême gauche": "#BE0E1D",
+  "Gauche": "#FF84A5",
+  "Centre": "#FFD75C",
+  "Droite": "#0074E1",
+  "Extrême droite": "#022950",
+  "Divers": "#818181"
 };
-var GRIS = "#4b5563";
+var COULEURS_PARTIS = {
+  "Les Ecologistes": "#48930B",
+  "Génération écologie": "#48930B"
+};
+
+var LIEN_ACTU_DEFAUT = "https://www.20minutes.fr/";
 var FAMILLES = ["Extrême gauche", "Gauche", "Centre", "Droite", "Extrême droite", "Divers"];
-/* ============================================== */
+
+var LIENS_FAMILLES = {
+  "Extrême gauche": "https://www.20minutes.fr/dossier/extreme_gauche",
+  "Gauche": "https://www.20minutes.fr/politique/parti_de_gauche/",
+  "Centre": "https://www.20minutes.fr/politique/centre/",
+  "Droite": "https://www.20minutes.fr/dossier/droite",
+  "Extrême droite": "https://www.20minutes.fr/dossier/extreme_droite"
+};
 
 var st = { q: "", fam: null, ret: true };
 var CANDS = [], MAJ = "";
@@ -107,14 +121,34 @@ function norm(s) { return String(s || "").toLowerCase().normalize("NFD").replace
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 function ini(n) { return n.split(/[\s-]+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join("").toUpperCase(); }
 function lastName(n) { var p = n.trim().split(/\s+/); return norm(p.length > 1 ? p.slice(1).join(" ") : n); }
-function color(parti) {
+function color(parti, fam) {
   var k = norm(parti);
-  for (var p in COULEURS) if (norm(p) === k) return COULEURS[p];
-  return GRIS;
+  for (var p in COULEURS_PARTIS) if (norm(p) === k) return COULEURS_PARTIS[p];
+  return COULEURS[fam] || "#818181";
+}
+
+function loadReglages(rows) {
+  var head = rows.shift().map(norm);
+  var iN = head.indexOf("nom"), iC = head.indexOf("couleur"), iL = head.indexOf("lien");
+  if (iN < 0 || iC < 0) return;
+  var partis = {}, liens = {};
+  rows.forEach(function (r) {
+    var nom = (r[iN] || "").trim(), c = (r[iC] || "").trim(), l = iL > -1 ? safeUrl(r[iL]) : "";
+    if (!nom) return;
+    if (!/^#[0-9a-f]{6}$/i.test(c)) c = "";
+    var fam = FAMILLES.filter(function (f) { return norm(f) === norm(nom); })[0];
+    if (fam) { if (c) COULEURS[fam] = c; if (l) liens[fam] = l; }
+    else if (c) partis[nom] = c;
+  });
+  COULEURS_PARTIS = partis;
+  LIENS_FAMILLES = liens;
+}
+function light(hex) {
+  var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b > 160;
 }
 function safeUrl(u) { u = String(u || "").trim(); return /^https?:\/\//i.test(u) || /^[\w./-]+\.(jpe?g|png|webp|gif)$/i.test(u) ? u : ""; }
 
-/* Lecture CSV (gère les guillemets et les virgules dans les bios) */
 function parseCSV(text) {
   var rows = [], row = [], f = "", q = false;
   for (var i = 0; i < text.length; i++) {
@@ -145,12 +179,14 @@ function load(rows) {
     if (!MAJ && get(r, "maj")) MAJ = get(r, "maj");
     var fam = get(r, "fam");
     var famOk = FAMILLES.filter(function (f) { return norm(f) === norm(fam); })[0] || "Divers";
-    var ret = norm(get(r, "st")).indexOf("retir") === 0;
+    var s = norm(get(r, "st"));
+    var ret = s.indexOf("retir") === 0;
+    var lab = ret ? (s === "retiree" ? "Retirée" : "Retiré") : (s === "candidate" ? "Candidate" : "Candidat");
     var age = parseInt(get(r, "age"), 10);
     CANDS.push({
-      nom: nom, age: isNaN(age) ? "" : age + " ans", parti: get(r, "parti"), fam: famOk, ret: ret,
-      bio: get(r, "bio"), lien: safeUrl(get(r, "lien")), photo: safeUrl(get(r, "photo")), credit: get(r, "credit"),
-      c: color(get(r, "parti")), key: norm(nom + " " + get(r, "parti") + " " + famOk)
+      nom: nom, age: isNaN(age) ? "" : age + " ans", parti: get(r, "parti"), fam: famOk, ret: ret, lab: lab,
+      bio: get(r, "bio"), lien: safeUrl(get(r, "lien")) || LIEN_ACTU_DEFAUT, photo: safeUrl(get(r, "photo")), credit: get(r, "credit"),
+      c: color(get(r, "parti"), famOk), key: norm(nom + " " + get(r, "parti") + " " + famOk)
     });
   });
   CANDS.sort(function (a, b) { return (a.ret - b.ret) || lastName(a.nom).localeCompare(lastName(b.nom), "fr"); });
@@ -162,7 +198,7 @@ function matches(c) { return !st.q || c.key.indexOf(norm(st.q)) > -1; }
 function render() {
   var enLice = CANDS.filter(function (c) { return !c.ret; }).length;
   var nRet = CANDS.length - enLice;
-  $("count").innerHTML = '<span class="dot"></span><strong>' + enLice + " candidats en lice</strong>" + (MAJ ? '<span>· mis à jour le ' + esc(MAJ) + "</span>" : "");
+  $("count").innerHTML = '<span class="dot"></span><strong>' + enLice + " candidats</strong>" + (MAJ ? '<span>· mis à jour le ' + esc(MAJ) + "</span>" : "");
 
   var pool = CANDS.filter(function (c) { return (st.ret || !c.ret) && matches(c); });
   var counts = {}; pool.forEach(function (c) { counts[c.fam] = (counts[c.fam] || 0) + 1; });
@@ -170,7 +206,7 @@ function render() {
   var chips = '<button class="chip" type="button" data-f="" aria-pressed="' + !st.fam + '">Tous<span class="n">' + pool.length + "</span></button>";
   FAMILLES.forEach(function (f) {
     var n = counts[f] || 0, on = st.fam === f;
-    chips += '<button class="chip" type="button" data-f="' + esc(f) + '" aria-pressed="' + on + '"' + (n || on ? "" : " disabled") + ">" + esc(f) + '<span class="n">' + n + "</span></button>";
+    chips += '<button class="chip" type="button" data-f="' + esc(f) + '" aria-pressed="' + on + '"' + (n || on ? "" : " disabled") + '><span class="pd" style="--fc:' + COULEURS[f] + '"></span>' + esc(f) + '<span class="n">' + n + "</span></button>";
   });
   chips += '<label class="toggle"><input type="checkbox" id="ret"' + (st.ret ? " checked" : "") + "> Afficher les retraits (" + nRet + ")</label>";
   $("filters").innerHTML = chips;
@@ -194,9 +230,11 @@ function card(c) {
       (c.credit ? '<span class="credit">Photo : ' + esc(c.credit) + "</span>" : "") + "</div>";
   }
   return '<article class="card' + (c.ret ? " ret" : "") + '">' +
-    '<div class="id"><div class="av" style="background:' + c.c + '">' + av + "</div>" +
-    '<div><p class="nm">' + esc(c.nom) + '</p><p class="pt"><strong style="color:' + (c.ret ? "#5a5a5a" : c.c) + '">' + esc(c.parti) + "</strong>" + (c.age ? " · " + esc(c.age) : "") + "</p></div></div>" +
-    '<div class="tags"><span class="tag">' + esc(c.fam) + '</span><span class="tag st">' + (c.ret ? "Retiré" : "En lice") + "</span></div>" +
+    '<div class="id"><div class="av" style="--fc:' + c.c + ";background:" + c.c + (light(c.c) ? ";color:#141414" : "") + '">' + av + "</div>" +
+    '<div><p class="nm">' + esc(c.nom) + (c.age ? '<span class="ag">, ' + esc(c.age) + "</span>" : "") + '</p><p class="pt"><span class="pd" style="--fc:' + c.c + '"></span><strong>' + esc(c.parti) + "</strong></p></div></div>" +
+    '<div class="tags">' + (LIENS_FAMILLES[c.fam] ?
+      '<a class="tag" href="' + esc(LIENS_FAMILLES[c.fam]) + '" target="_top">' + esc(c.fam) + ' <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a>' :
+      '<span class="tag">' + esc(c.fam) + "</span>") + '<span class="tag st">' + c.lab + "</span></div>" +
     (c.bio ? '<p class="bio">' + esc(c.bio) + "</p>" : "") + foot + "</article>";
 }
 
@@ -207,7 +245,6 @@ $("filters").addEventListener("click", function (e) {
 $("q").addEventListener("input", function (e) { st.q = e.target.value.trim(); render(); });
 $("clear").addEventListener("click", function () { st.q = ""; $("q").value = ""; $("q").focus(); render(); });
 
-/* Hauteur automatique quand la page est intégrée en iframe */
 function size() {
   try {
     if (window.parent === window) return;
@@ -218,9 +255,15 @@ function size() {
 }
 window.addEventListener("resize", size);
 
-fetch(SHEET_URL, { cache: "no-store" })
-  .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
-  .then(function (t) { if (/^\s*</.test(t)) throw new Error("not csv"); load(parseCSV(t)); })
+function getCSV(url) {
+  return fetch(url, { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function (t) { if (/^\s*</.test(t)) throw new Error("not csv"); return parseCSV(t); });
+}
+
+var reglages = getCSV(REGLAGES_URL).then(loadReglages).catch(function () {});
+Promise.all([getCSV(SHEET_URL), reglages])
+  .then(function (res) { load(res[0]); })
   .catch(function () {
     $("count").innerHTML = '<span class="dot" style="background:#b91c1c"></span><span>Impossible de charger la liste des candidats pour le moment.</span>';
   });
